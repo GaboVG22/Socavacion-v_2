@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>HidroSed · Hidráulica, Sedimentos y Socavación</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="app-header">
+    <div>
+      <h1>HidroSed</h1>
+      <p>Hidráulica · Transporte de sedimentos · Socavación general · Secciones dibujadas o cargadas como imagen</p>
+    </div>
+    <div class="header-actions">
+      <button id="btnSaveLocal" class="ghost">Guardar local</button>
+      <button id="btnLoadLocal" class="ghost">Cargar local</button>
+      <button id="btnExportJson">Exportar JSON</button>
+      <label class="file-btn">Importar JSON <input id="jsonImport" type="file" accept=".json,application/json" /></label>
+    </div>
+  </header>
+
+  <main class="layout">
+    <aside class="sidebar card">
+      <h2>1. Proyecto</h2>
+      <label>Nombre del proyecto
+        <input id="projectName" type="text" value="Tramo de río" />
+      </label>
+      <div class="grid-2">
+        <label>N° secciones
+          <input id="numSections" type="number" min="1" max="200" value="5" />
+        </label>
+        <label>Separación (m)
+          <input id="defaultSpacing" type="number" min="0" step="1" value="20" />
+        </label>
+      </div>
+      <button id="btnGenerateSections">Generar secciones</button>
+      <button id="btnAddSection" class="ghost">Agregar sección</button>
+
+      <h2>2. Condiciones globales</h2>
+      <div class="grid-2">
+        <label>Q diseño (m³/s)
+          <input id="globalQ" type="number" step="0.01" value="40" />
+        </label>
+        <label>Tr (años)
+          <input id="returnPeriod" type="number" step="1" value="100" />
+        </label>
+        <label>Pendiente J/S (m/m)
+          <input id="globalSlope" type="number" step="0.0001" value="0.0022" />
+        </label>
+        <label>Manning n
+          <input id="globalN" type="number" step="0.001" value="0.035" />
+        </label>
+        <label>γs sedimento (kg/m³)
+          <input id="gammaS" type="number" step="1" value="2650" />
+        </label>
+        <label>γ mezcla agua+sed. (t/m³)
+          <input id="gammaMix" type="number" step="0.01" value="1.00" />
+        </label>
+      </div>
+      <button id="btnApplyGlobal" class="ghost">Aplicar global a secciones</button>
+
+      <h2>3. Sección activa</h2>
+      <label>Seleccionar sección
+        <select id="activeSection"></select>
+      </label>
+      <div class="mini-status" id="sectionStatus">Sin geometría.</div>
+    </aside>
+
+    <section class="content">
+      <nav class="tabs card">
+        <button data-tab="sections" class="tab active">Secciones</button>
+        <button data-tab="drawing" class="tab">Dibujo / Imagen</button>
+        <button data-tab="gradation" class="tab">Granulometría</button>
+        <button data-tab="results" class="tab">Cálculo y resultados</button>
+        <button data-tab="method" class="tab">Metodología</button>
+      </nav>
+
+      <section id="tab-sections" class="tab-panel active card">
+        <div class="panel-title">
+          <div>
+            <h2>Secciones del tramo</h2>
+            <p>Puede usar geometría dibujada o ingresar ancho/tirante manual si aún no tiene levantamiento.</p>
+          </div>
+          <button id="btnRun1">Calcular</button>
+        </div>
+        <div class="table-wrap">
+          <table id="sectionsTable"></table>
+        </div>
+        <p class="note">La columna “Curva” permite marcar secciones dentro de meandro o curva. El factor de curva se aplica como ajuste preliminar sobre la socavación calculada; se recomienda revisar con distribución lateral de velocidades o modelo 2D cuando sea crítico.</p>
+      </section>
+
+      <section id="tab-drawing" class="tab-panel card">
+        <div class="panel-title">
+          <div>
+            <h2>Dibujar o digitalizar sección transversal</h2>
+            <p>Dibuje con lápiz o cargue una imagen y marque la línea del terreno. Luego guarde la geometría para la sección activa.</p>
+          </div>
+          <div class="draw-actions">
+            <button id="btnSaveGeometry">Guardar geometría</button>
+            <button id="btnClearCanvas" class="danger ghost">Borrar trazado</button>
+          </div>
+        </div>
+
+        <div class="draw-grid">
+          <div class="draw-panel">
+            <canvas id="sectionCanvas" width="980" height="520"></canvas>
+            <div class="canvas-help">Clic o arrastre para agregar puntos. Doble clic elimina el último punto. Use una imagen de fondo si tiene perfiles exportados desde HEC-RAS, CAD, PDF o planillas.</div>
+          </div>
+          <div class="draw-controls">
+            <h3>Herramientas</h3>
+            <label>Modo
+              <select id="drawMode">
+                <option value="digitize">Digitalizar puntos</option>
+                <option value="pencil">Lápiz continuo</option>
+              </select>
+            </label>
+            <label>Cargar imagen de sección
+              <input id="imageInput" type="file" accept="image/*" />
+            </label>
+            <button id="btnRemoveImage" class="ghost">Quitar imagen</button>
+            <h3>Escala de la ventana</h3>
+            <label>Ancho real visible (m)
+              <input id="scaleX" type="number" step="0.1" value="60" />
+            </label>
+            <label>Altura real visible (m)
+              <input id="scaleY" type="number" step="0.1" value="8" />
+            </label>
+            <label>Cota inferior visible (m)
+              <input id="zBottom" type="number" step="0.1" value="0" />
+            </label>
+            <button id="btnExampleSection" class="ghost">Cargar ejemplo</button>
+            <button id="btnSortPoints" class="ghost">Ordenar puntos X</button>
+            <div class="mini-status" id="pointStatus">0 puntos.</div>
+          </div>
+        </div>
+      </section>
+
+      <section id="tab-gradation" class="tab-panel card">
+        <div class="panel-title">
+          <div>
+            <h2>Granulometría</h2>
+            <p>Ingrese la curva diámetro–porcentaje que pasa. La aplicación interpola en escala logarítmica para obtener D50, D84, D90 y Dm.</p>
+          </div>
+          <div>
+            <button id="btnAddGrain" class="ghost">Agregar fila</button>
+            <button id="btnExampleGrain" class="ghost">Ejemplo</button>
+            <button id="btnApplyGrain">Aplicar D a secciones</button>
+          </div>
+        </div>
+        <div class="gradation-grid">
+          <div class="table-wrap">
+            <table id="grainTable"></table>
+          </div>
+          <div class="card soft">
+            <h3>Diámetros calculados</h3>
+            <div id="grainSummary" class="summary-grid"></div>
+            <canvas id="grainCanvas" width="640" height="360"></canvas>
+          </div>
+        </div>
+      </section>
+
+      <section id="tab-results" class="tab-panel card">
+        <div class="panel-title">
+          <div>
+            <h2>Cálculo hidráulico, transporte y socavación</h2>
+            <p>Ejecuta Manning, tensión de fondo, MPM y Lischtvan-Levediev por sección.</p>
+          </div>
+          <div>
+            <button id="btnRun2">Calcular</button>
+            <button id="btnExportCsv" class="ghost">Exportar CSV</button>
+            <button id="btnReport" class="ghost">Reporte HTML</button>
+          </div>
+        </div>
+        <div id="warnings" class="warnings"></div>
+        <div class="summary-grid" id="resultSummary"></div>
+        <canvas id="profileCanvas" width="1100" height="380"></canvas>
+        <div class="table-wrap">
+          <table id="resultsTable"></table>
+        </div>
+      </section>
+
+      <section id="tab-method" class="tab-panel card">
+        <h2>Metodología incorporada en esta versión</h2>
+        <div class="method-grid">
+          <article>
+            <h3>Hidráulica por sección</h3>
+            <p>Para geometrías dibujadas se calcula área mojada, perímetro mojado, radio hidráulico, ancho superficial, tirante medio, velocidad media y Froude. Si existe Q y pendiente, la profundidad normal se obtiene por iteración usando Manning.</p>
+          </article>
+          <article>
+            <h3>Granulometría</h3>
+            <p>La curva se interpola en escala logarítmica para estimar D50, D84, D90 y Dm. D90 alimenta la rugosidad de partícula en MPM; Dm alimenta Lischtvan-Levediev.</p>
+          </article>
+          <article>
+            <h3>Transporte de sedimentos MPM</h3>
+            <p>Se aplica Meyer-Peter-Müller con corrección de rugosidad tipo Strickler. Si la tensión efectiva no supera el umbral, el gasto sólido se informa como cero.</p>
+          </article>
+          <article>
+            <h3>Socavación general Lischtvan-Levediev</h3>
+            <p>Se calcula Hs para material granular homogéneo y la socavación como max(Hs − h, 0). Incluye β por período de retorno, z por Dm, μ de contracción y φ por mezcla agua-sedimento.</p>
+          </article>
+          <article>
+            <h3>Tramos en curva</h3>
+            <p>El marcado de curva no reemplaza un modelo 2D. En esta versión se usa como ajuste preliminar configurable. La recomendación técnica es discretizar la sección por franjas o aplicar modelación 2D para curvas críticas.</p>
+          </article>
+          <article>
+            <h3>Alcance</h3>
+            <p>Herramienta preliminar de revisión y comparación. No sustituye levantamiento topobatimétrico, calibración hidráulica, mediciones granulométricas ni validación profesional.</p>
+          </article>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <span>HidroSed v0.1 · Aplicación estática compatible con GitHub Pages</span>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
